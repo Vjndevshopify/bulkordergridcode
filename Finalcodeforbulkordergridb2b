@@ -1,0 +1,212 @@
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+<div class="page-width">
+    <div class="quick-order-list__container" id="main-variant-items">
+        {% form 'product', product, class: 'product-single__formw' %}
+            <table>
+                <thead>
+                    <tr>
+                        <th>Variant</th>
+                        <th>Price</th>
+                        <th>Quantity</th>
+                        <th class="hidemobile">Subtotal</th>
+                      
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for variant in product.variants %}
+                        {% if variant.available %}
+                            <tr class="variant-row">
+                                <td>
+                                    <div class="variant-item__media">
+                  <div class="variant-item__image-container gradient global-media-settings{% unless variant.image %} variant-item__image-container--no-img {% endunless %}">
+                    {% if variant.image %}
+                      {%- assign img_height = 83 | divided_by: variant.image.aspect_ratio | ceil -%}
+                      {{
+                        variant.image
+                        | image_url: width: 86
+                        | image_tag:
+                          loading: 'lazy',
+                          fetchpriority: 'low',
+                          decoding: 'async',
+                          class: 'variant-item__image',
+                          width: 83,
+                          height: img_height,
+                          widths: '86',
+                          alt: variant.image.alt
+                        | escape
+                      }}
+                    {% endif %}
+                  </div>
+                  <div class="variant-item__info">
+                    <span class="variant-item__name h6 break">{{ variant.title | escape }}</span>
+                  </div>
+                  <span class="variant-item__sku break" style="font-size: 14px;">SKU-   {{ variant.sku }}</span>
+                </div>
+                                </td>
+                                <td>{{ variant.price | money_with_currency }}/ea
+                                <br>
+                {% if product.metafields.custom.baseprice %}
+                  {% assign price_info = product.metafields.custom.baseprice | remove: '"' | replace: '{', '' | replace: '}', '' | split: ',' %}
+                  {% assign amount = price_info[0] | split: ':' | last %}
+                  <span style="font-size: 14px;">MSRP-  <span style="text-decoration: line-through;">${{ amount }} </span></span>
+                {% endif %}
+                                </td>
+                                <td>
+                                    <div style="display: flex; align-items: center; width: 50%;">
+    <div class="b2bquantity" style="display: flex;">
+        <button type="button" class="quantity-btn minus" style="font-size: 16px; padding: 10px;">-</button>
+        <input type="number" class="quantity" style="flex: 1; width: calc(100% - 100px); padding: 10px; font-size: 16px;" name="quantity[{{ variant.id }}]" value="0" min="0" data-price="{{ variant.price | money_with_currency }}">
+        <button type="button" class="quantity-btn plus" style="font-size: 16px; padding: 10px;">+</button>
+    </div>
+    <button type="button" class="add-to-cart-button" data-variant-id="{{ variant.id }}">
+        <img src="https://cdn.shopify.com/s/files/1/2423/6599/files/carticonnew-removebg-preview.png?v=1707302366" alt="Add to Cart" width="60" height="60">
+    </button>   
+</div>
+
+                                </td>
+                                <td class="subtotal hidemobile">$0.00</td>
+                               
+                            </tr>
+                        {% endif %}
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% endform %}
+    </div>
+
+<div>
+      <div class="quick-order-list__total gradient" id="quick-order-list-total">
+        <div class="quick-order-list-total__info" style="text-align: center;">
+          <div class="quick-order-list-total__column small-hide medium-hide">
+            <br>
+            <br>
+            <div class="totals__product-total">
+
+                <p>TOTAL PRICE: <span class="total-price">$0.00</span></p>
+            </div>
+            <small class="tax-note caption-large rte" style>
+              {%- if cart.taxes_included and shop.shipping_policy.body != blank -%}
+                Tax included. <a href="{{ shop.shipping_policy.url }}">Shipping</a> calculated at checkout.
+              {%- elsif cart.taxes_included -%}
+                Tax included and shipping calculated at checkout
+              {%- elsif shop.shipping_policy.body != blank -%}
+                Taxes and <a href="{{ shop.shipping_policy.url }}">shipping</a> calculated at checkout
+              {%- else -%}
+                Taxes and shipping calculated at checkout
+              {%- endif -%}
+            </small>
+          </div>
+          <div class="quick-order-list-total__column large-up-hide">
+            <div class="quick-order-list-buttons">
+              <button type="button" class=" btn add-all-to-cart-button" style="background-color: #202020; color: white; border: 1px solid #202020;">
+                View Cart
+                <span class="right-arrow">
+                  {%- render 'enavi-icons' name:'right-arrow', width:'15px', height:'12px' -%}
+                </span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  
+  
+   
+
+<script>
+$(document).ready(function() {
+    $('.quantity-btn.plus').on('click', function() {
+        var $input = $(this).siblings('.quantity');
+        var quantity = parseInt($input.val());
+        $input.val(quantity + 1);
+        updateSubtotal($(this));
+    });
+
+    $('.quantity-btn.minus').on('click', function() {
+        var $input = $(this).siblings('.quantity');
+        var quantity = parseInt($input.val());
+        if (quantity > 0) {
+            $input.val(quantity - 1);
+            updateSubtotal($(this));
+        }
+    });
+
+    $('.add-to-cart-button').on('click', function() {
+        var items = [];
+        $('.variant-row').each(function() {
+            var variantId = $(this).find('.add-to-cart-button').data('variant-id');
+            var quantity = parseInt($(this).find('.quantity').val());
+            if (quantity > 0) {
+                items.push({
+                    id: variantId,
+                    quantity: quantity
+                });
+            }
+        });
+        addToCartWithAjax(items);
+        // Clear quantity inputs after adding items to the cart
+        $('.quantity').val(0);
+        updateSubtotal();
+    });
+
+    $('.quantity').on('input', function() {
+        updateSubtotal($(this));
+    });
+
+    $('.add-all-to-cart-button').on('click', function() {
+        var items = [];
+        $('.variant-row').each(function() {
+            var variantId = $(this).find('.add-to-cart-button').data('variant-id');
+            var quantity = parseInt($(this).find('.quantity').val());
+            if (quantity > 0) {
+                items.push({
+                    id: variantId,
+                    quantity: quantity
+                });
+            }
+        });
+        addToCartWithAjax(items);
+        // Clear quantity inputs after adding items to the cart
+        $('.quantity').val(0);
+        updateSubtotal();
+    });
+});
+
+function updateSubtotal($element) {
+    var totalPrice = 0;
+    $('.variant-row').each(function() {
+        var quantity = parseInt($(this).find('.quantity').val());
+        var price = parseFloat($(this).find('.quantity').data('price').replace(/[^0-9\.]+/g, ""));
+        var subtotal = price * quantity;
+        $(this).find('.subtotal').text('$' + subtotal.toFixed(2));
+        totalPrice += subtotal;
+    });
+    $('.total-price').text('$' + totalPrice.toFixed(2));
+}
+
+function addToCartWithAjax(items) {
+    fetch('/cart/add.js', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            items: items
+        }),
+    })
+    .then(response => response.json())
+    .then(data => {
+        console.log('Items added to the cart:', data);
+        updateCartDrawer();
+    })
+    .catch(error => {
+        console.error('Failed to add items to the cart:', error);
+    });
+}
+
+function updateCartDrawer() {
+    var cart = new theme.CartDrawer();
+    cart.init();
+    cart.open();
+}
+</script>
