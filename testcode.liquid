@@ -1,0 +1,116 @@
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+<div class="page-width">
+    <div class="quick-order-list__container" id="main-variant-items">
+        {% form 'product', product, class: 'product-single__formw' %}
+            <table>
+                <thead>
+                    <tr>
+                        <th>Variant</th>
+                        <th>Price</th>
+                        <th>Quantity</th>
+                        <th class="hidemobile">Subtotal</th>
+                        <th>Add to Cart</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for variant in product.variants %}
+                        {% if variant.available %}
+                            <tr class="variant-row">
+                                <td>
+                                    <!-- Variant information -->
+                                </td>
+                                <td>{{ variant.price | money_with_currency }}/ea</td>
+                                <td>
+                                    <div style="display: flex; align-items: center;">
+                                        <button type="button" class="quantity-btn minus" style="font-size: 16px; padding: 10px;">-</button>
+                                        <input type="number" class="quantity" style="flex: 1;" name="quantity[{{ variant.id }}]" value="0" min="0" data-price="{{ variant.price | money_with_currency }}" style="width: 60%; padding: 10px; font-size: 16px;">
+                                        <button type="button" class="quantity-btn plus" style="font-size: 16px; padding: 10px;">+</button>
+                                    </div>
+                                </td>
+                                <td class="subtotal hidemobile">$0.00</td>
+                                <td>
+                                    <button type="button" class="add-to-cart-button" data-variant-id="{{ variant.id }}">
+                                        Add to Cart
+                                    </button>
+                                </td>
+                            </tr>
+                        {% endif %}
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% endform %}
+    </div>
+</div>
+
+<script>
+$(document).ready(function() {
+    $('.quantity-btn.plus').on('click', function() {
+        var $input = $(this).siblings('.quantity');
+        var quantity = parseInt($input.val());
+        $input.val(quantity + 1);
+        updateSubtotal($(this));
+    });
+
+    $('.quantity-btn.minus').on('click', function() {
+        var $input = $(this).siblings('.quantity');
+        var quantity = parseInt($input.val());
+        if (quantity > 0) {
+            $input.val(quantity - 1);
+            updateSubtotal($(this));
+        }
+    });
+
+    $('.add-to-cart-button').on('click', function() {
+        var items = [];
+        $('.variant-row').each(function() {
+            var variantId = $(this).find('.add-to-cart-button').data('variant-id');
+            var quantity = parseInt($(this).find('.quantity').val());
+            if (quantity > 0) {
+                items.push({
+                    id: variantId,
+                    quantity: quantity
+                });
+            }
+        });
+        addToCartWithAjax(items);
+    });
+
+    $('.quantity').on('input', function() {
+        updateSubtotal($(this));
+    });
+});
+
+function updateSubtotal($element) {
+    var $row = $element.closest('.variant-row');
+    var quantity = parseInt($row.find('.quantity').val());
+    var price = parseFloat($row.find('.quantity').data('price').replace(/[^0-9\.]+/g, ""));
+    var subtotal = price * quantity;
+    $row.find('.subtotal').text('$' + subtotal.toFixed(2));
+}
+
+function addToCartWithAjax(items) {
+    fetch('/cart/add.js', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            items: items
+        }),
+    })
+    .then(response => response.json())
+    .then(data => {
+        console.log('Items added to the cart:', data);
+        updateCartDrawer();
+    })
+    .catch(error => {
+        console.error('Failed to add items to the cart:', error);
+    });
+}
+
+function updateCartDrawer() {
+    var cart = new theme.CartDrawer();
+    cart.init();
+    cart.open();
+}
+</script>
